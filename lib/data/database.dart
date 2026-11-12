@@ -42,6 +42,18 @@ class LedgerState {
   DailyBudget get today => days.last;
 }
 
+class PetStatus {
+  const PetStatus(this.earned, this.upgrades);
+  final int earned, upgrades;
+  int get balance => (earned - upgrades * 5).clamp(0, earned);
+  int get level => upgrades + 1;
+  String get sprite => level >= 5
+      ? "bloom"
+      : level >= 2
+      ? "sprout"
+      : "seed";
+}
+
 @DriftDatabase(tables: [BudgetCycles, LedgerEntries, DailySnapshots])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -55,7 +67,49 @@ class AppDatabase extends _$AppDatabase {
             }),
       );
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+  static const petTable =
+      'CREATE TABLE pet_growth(id INTEGER PRIMARY KEY CHECK(id=1), upgrades INTEGER NOT NULL CHECK(upgrades>=0))';
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+      await customStatement(petTable);
+    },
+    onUpgrade: (m, from, to) async {
+      if (from == 1) {
+        await customStatement(petTable);
+        await _setUpgrades((await _earned(DateTime.now())) ~/ 5);
+      }
+    },
+  );
+  Future<void> _setUpgrades(int value) =>
+      customStatement('INSERT OR REPLACE INTO pet_growth VALUES(1,?)', [value]);
+  Future<int> _upgrades() async => (await customSelect(
+    'SELECT coalesce(max(upgrades),0) AS n FROM pet_growth',
+  ).getSingle()).read<int>('n');
+  Future<int> _earned(DateTime now) async {
+    final today = day(now).toIso8601String().substring(0, 10);
+    final row = await customSelect(
+      r"""WITH records AS (
+    SELECT DISTINCT cycle_id,substr(json_extract(payload,'$.date'),1,10) AS d FROM ledger_entries
+  ), rewards AS (SELECT r.d,max(CASE WHEN r.d<? AND s.allocated>s.spent THEN 1 ELSE 0 END) AS saved
+    FROM records r LEFT JOIN daily_snapshots s ON s.cycle_id=r.cycle_id AND substr(s.date,1,10)=r.d
+    WHERE r.d<=? GROUP BY r.d)
+    SELECT coalesce(sum(1+saved),0) AS points FROM rewards""",
+      variables: [Variable.withString(today), Variable.withString(today)],
+    ).getSingle();
+    return row.read<int>('points');
+  }
+
+  Future<PetStatus> petStatus(DateTime now) async =>
+      PetStatus(await _earned(now), await _upgrades());
+  Future<bool> trainPet(DateTime now) => transaction(() async {
+    final pet = await petStatus(now);
+    if (pet.balance < 5) return false;
+    await _setUpgrades(pet.upgrades + 1);
+    return true;
+  });
 
   Future<void> addBudgetChange(BudgetChange change, DateTime now) =>
       transaction(() async {
@@ -99,6 +153,7 @@ class AppDatabase extends _$AppDatabase {
             ),
           )
           .toList(),
+      upgrades: await _upgrades(),
     );
   });
 
@@ -143,6 +198,7 @@ class AppDatabase extends _$AppDatabase {
           ),
         );
       }
+      await _setUpgrades(backup.upgrades ?? ((await _earned(now)) ~/ 5));
     });
   }
 

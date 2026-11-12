@@ -30,6 +30,8 @@ class MainActivity: FlutterActivity() {
                     val data=call.arguments as? Map<*,*>
                     if(data==null){result.error("invalid","Invalid widget data",null)}else{
                         getSharedPreferences("widget_display",MODE_PRIVATE).edit()
+                            .putInt("petPoints",(data["petPoints"] as? Number)?.toInt()?:0)
+                            .putBoolean("loggedToday",data["loggedToday"] as? Boolean?:false)
                             .putBoolean("configured",data["configured"] as? Boolean?:false)
                             .putLong("remaining",(data["remaining"] as? Number)?.toLong()?:0)
                             .putFloat("hp",(data["hp"] as? Number)?.toFloat()?:0f)

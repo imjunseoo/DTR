@@ -1,3 +1,5 @@
+import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,8 +8,20 @@ import '../data/database.dart';
 import '../domain/budget.dart';
 import '../platform/android_bridge.dart';
 
+final qaModeProvider = NotifierProvider<QaMode, bool>(QaMode.new);
+
+class QaMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void toggle() {
+    if (kDebugMode) state = !state;
+  }
+}
+
 final databaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase();
+  final db = AppDatabase(
+    ref.watch(qaModeProvider) ? NativeDatabase.memory() : null,
+  );
   ref.onDispose(db.close);
   return db;
 });
@@ -17,10 +31,16 @@ final ledgerProvider = FutureProvider<LedgerState?>((ref) async {
   await db.refreshSnapshots(now);
   return db.load(now);
 });
+final petPointsProvider = FutureProvider<PetStatus>((ref) async {
+  final db = ref.watch(databaseProvider);
+  await ref.watch(ledgerProvider.future);
+  return db.petStatus(DateTime.now());
+});
 final widgetSyncProvider = FutureProvider<bool>((ref) async {
   final state = await ref.watch(ledgerProvider.future);
   try {
-    await AndroidBridge.sync(state);
+    final pet = await ref.watch(petPointsProvider.future);
+    await AndroidBridge.sync(state, pet.upgrades * 5);
     return true;
   } catch (_) {
     return false;

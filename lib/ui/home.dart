@@ -11,6 +11,9 @@ import 'budget_change_screen.dart';
 import 'state.dart';
 import 'setup.dart';
 import 'expense.dart';
+import 'growth.dart';
+
+import 'package:flutter/foundation.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -88,8 +91,17 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
     final widgetSync = ref.watch(widgetSyncProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DTR', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(
+          ref.watch(qaModeProvider) ? 'DTR · QA' : 'DTR',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         actions: [
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'QA 개발자 도구',
+              icon: const Icon(Icons.bug_report_outlined),
+              onPressed: () => showQaTools(context, ref),
+            ),
           IconButton(
             tooltip: '백업 및 복원',
             onPressed: () => Navigator.of(context).push(
@@ -106,33 +118,37 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
       persistentFooterButtons: widgetSync.asData?.value == false
           ? [const Text('기록은 저장됐어요. 위젯 갱신은 앱을 다시 열 때 재시도합니다.')]
           : null,
-      body: ledger.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('기록을 불러오지 못했어요. 데이터를 지우지 않고 다시 시도합니다.'),
-                const SizedBox(height: 12),
-                Text('$e'),
-                TextButton(
-                  onPressed: () => ref.invalidate(ledgerProvider),
-                  child: const Text('다시 시도'),
+      body: page == 2
+          ? const GrowthScreen()
+          : ledger.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('기록을 불러오지 못했어요. 데이터를 지우지 않고 다시 시도합니다.'),
+                      const SizedBox(height: 12),
+                      Text('$e'),
+                      TextButton(
+                        onPressed: () => ref.invalidate(ledgerProvider),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
+              data: (data) => data == null
+                  ? const SetupScreen()
+                  : page == 0
+                  ? dashboard(data)
+                  : history(data),
             ),
-          ),
-        ),
-        data: (data) => data == null
-            ? const SetupScreen()
-            : page == 0
-            ? dashboard(data)
-            : history(data),
-      ),
       floatingActionButton:
-          ledger.asData?.value != null && !ledger.asData!.value!.today.expired
+          page != 2 &&
+              ledger.asData?.value != null &&
+              !ledger.asData!.value!.today.expired
           ? FloatingActionButton.extended(
               onPressed: () => edit(null, ledger.asData!.value!),
               icon: const Icon(Icons.add),
@@ -151,6 +167,7 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
             icon: Icon(Icons.receipt_long_outlined),
             label: '내역',
           ),
+          NavigationDestination(icon: Icon(Icons.eco_outlined), label: '성장'),
         ],
       ),
     );
@@ -163,10 +180,7 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
       children: [
-        const Text(
-          '오늘도 내 속도대로',
-          style: TextStyle(fontSize: 15, color: Colors.black54),
-        ),
+        const Text('오늘도 내 속도대로'),
         const SizedBox(height: 8),
         if (b.expired)
           Card(
@@ -240,6 +254,33 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
+          ),
+        const SizedBox(height: 12),
+        if (ref.watch(petPointsProvider).asData case final points?)
+          Builder(
+            builder: (context) {
+              final pet = points.value;
+              final stage = pet.sprite;
+              final logged = data.expenses.any((e) => day(e.date) == b.date);
+              return Row(
+                children: [
+                  Image.asset(
+                    'android/app/src/main/res/drawable-nodpi/dori_$stage.png',
+                    width: 48,
+                    height: 48,
+                    filterQuality: FilterQuality.none,
+                    semanticLabel: '돈토리',
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Lv. ${pet.level} · ${pet.balance} 도토리\n'
+                      '${logged ? "가계부에 한 알 담았어요!" : "한 알, 두 알, 모이면 큰 도토리."}',
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         const SizedBox(height: 12),
         Row(

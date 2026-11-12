@@ -75,3 +75,5 @@ dart run build_runner build
 - `lib/platform/` — Flutter와 Android 사이의 호출
 - `android/app/src/main/` — Kotlin 홈 위젯과 Android 파일 선택기
 - `test/` — 계산·저장·백업·화면 테스트
+
+현재 성장 탭·QA APK·다음 개발 순서는 [개발 인계 문서](docs/HANDOFF.md)에서 확인하세요.

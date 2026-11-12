@@ -7,11 +7,13 @@ class AndroidBridge {
   static const channel = MethodChannel('com.dontori/platform');
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-  static Future<void> sync(LedgerState? state) async {
+  static Future<void> sync(LedgerState? state, int points) async {
     if (!supported) return;
     final b = state?.today;
     await channel.invokeMethod<void>('syncWidget', {
       'configured': state != null,
+      'petPoints': points,
+      'loggedToday': state?.expenses.any((e) => e.date == b?.date) ?? false,
       'remaining': b?.remaining ?? 0,
       'hp': b?.hp ?? 0,
       'date': b == null ? '' : b.date.toIso8601String().split('T').first,

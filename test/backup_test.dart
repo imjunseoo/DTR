@@ -52,7 +52,10 @@ void main() {
       (duplicate['cycles'] as List).add((duplicate['cycles'] as List).first);
       for (final bad in [
         '{broken',
-        original.replaceFirst('"version":1', '"version":999'),
+        jsonEncode({
+          ...jsonDecode(original) as Map<String, dynamic>,
+          'version': 999,
+        }),
         jsonEncode(duplicate),
         original.replaceFirst('"amount":8000', '"amount":-1'),
       ]) {
@@ -72,5 +75,41 @@ void main() {
       () => BackupData.decode('{"app":"dontori","version":1}', now),
       throwsFormatException,
     );
+  });
+  test('도토리 5개를 동시에 두 번 쓸 수 없고 강화 결과는 복원된다', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final restored = AppDatabase(NativeDatabase.memory());
+    try {
+      final start = now.subtract(const Duration(days: 2));
+      await db.startCycle(
+        BudgetPlan(
+          amount: 300000,
+          savings: 0,
+          start: start,
+          payday: now.add(const Duration(days: 10)),
+        ),
+        start,
+      );
+      for (var i = 0; i < 3; i++) {
+        await db.saveExpense(
+          Expense(
+            id: 'qa$i',
+            amount: 1000,
+            date: start.add(Duration(days: i)),
+          ),
+          now,
+        );
+      }
+      expect((await db.petStatus(now)).balance, 5);
+      final results = await Future.wait([db.trainPet(now), db.trainPet(now)]);
+      expect(results.where((ok) => ok).length, 1);
+      await restored.restoreBackup((await db.exportBackup()).encode(), now);
+      final pet = await restored.petStatus(now);
+      expect(pet.level, 2);
+      expect(pet.balance, 0);
+    } finally {
+      await db.close();
+      await restored.close();
+    }
   });
 }

@@ -17,12 +17,14 @@ class BackupCycle {
 }
 
 class BackupData {
-  const BackupData(this.cycles);
+  const BackupData(this.cycles, {this.upgrades});
+  final int? upgrades;
   final List<BackupCycle> cycles;
   int get expenseCount => cycles.fold(0, (n, c) => n + c.expenses.length);
   String encode() => jsonEncode({
     'app': 'dontori',
-    'version': 1,
+    'version': upgrades == null ? 1 : 2,
+    if (upgrades != null) 'petUpgrades': upgrades,
     'cycles': cycles.map((c) => c.toJson()).toList(),
   });
   factory BackupData.decode(String source, DateTime now) {
@@ -31,7 +33,7 @@ class BackupData {
     }
     try {
       final j = jsonDecode(source) as Map<String, dynamic>;
-      if (j['app'] != 'dontori' || j['version'] != 1) {
+      if (j['app'] != 'dontori' || ![1, 2].contains(j['version'])) {
         throw const FormatException('지원하지 않는 백업 형식입니다.');
       }
       final raw = j['cycles'] as List;
@@ -67,7 +69,11 @@ class BackupData {
           throw const FormatException('예산 기간이 겹칩니다.');
         }
       }
-      return BackupData(cycles);
+      final u = j['version'] == 2 ? j['petUpgrades'] as int : null;
+      if (u != null && (u < 0 || u > 1000000)) {
+        throw const FormatException('잘못된 성장 정보');
+      }
+      return BackupData(cycles, upgrades: u);
     } on FormatException {
       rethrow;
     } catch (_) {
