@@ -62,3 +62,6 @@ dist/*.apk
 *.p12
 *.bundle
 dontori-backup*.json
+
+# Local rendering scratch
+/work/

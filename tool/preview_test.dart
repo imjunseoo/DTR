@@ -14,24 +14,16 @@ import 'package:dtr/domain/budget.dart';
 import 'package:dtr/main.dart';
 import 'package:dtr/platform/android_bridge.dart';
 import 'package:dtr/ui/state.dart';
+import 'package:dtr/ui/design.dart';
+import 'package:dtr/ui/backup_screen.dart';
+import 'package:dtr/ui/budget_change_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    for (final family in ['Roboto', 'Ahem']) {
-      final font = FontLoader(family);
-      font.addFont(
-        File('C:/Windows/Fonts/malgun.ttf')
-            .readAsBytes()
-            .then((b) => ByteData.sublistView(b)),
-      );
-      font.addFont(
-        File('C:/Windows/Fonts/malgunbd.ttf')
-            .readAsBytes()
-            .then((b) => ByteData.sublistView(b)),
-      );
-      await font.load();
-    }
+    final font = FontLoader('NotoSansKR');
+    font.addFont(rootBundle.load('assets/fonts/NotoSansKR.ttf'));
+    await font.load();
     final icons = FontLoader('MaterialIcons');
     icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
@@ -64,7 +56,7 @@ void main() {
             ),
             now,
           );
-          await db.saveExpense(
+          /*await db.saveExpense(
             Expense(
               id: 'sample-lunch',
               amount: 8000,
@@ -73,14 +65,18 @@ void main() {
               memo: '점심 식사',
             ),
             now,
-          );
+          );*/
         }
+        var previewPet = const PetStatus(20, 0);
         final boundaryKey = GlobalKey();
         await tester.pumpWidget(
           RepaintBoundary(
             key: boundaryKey,
             child: ProviderScope(
-              overrides: [databaseProvider.overrideWithValue(db)],
+              overrides: [
+                databaseProvider.overrideWithValue(db),
+                petPointsProvider.overrideWith((ref) async => previewPet),
+              ],
               child: const DontoriApp(),
             ),
           ),
@@ -105,14 +101,80 @@ void main() {
 
         await capture(seeded ? '02-home' : '01-setup');
         if (seeded) {
+          final previewContainer = ProviderScope.containerOf(
+            tester.element(find.byType(DtrNavigation)),
+          );
+          await db.saveExpense(
+            Expense(
+              id: 'sample-lunch',
+              amount: 8000,
+              date: now,
+              category: '식사',
+              memo: '점심 식사',
+            ),
+            now,
+          );
+          previewContainer.invalidate(ledgerProvider);
+          await tester.pumpAndSettle();
           await tester.tap(find.text('지출 입력'));
           await tester.pumpAndSettle();
           await capture('03-expense');
-          await tester.pageBack();
+          await tester.tap(find.text('‹'));
           await tester.pumpAndSettle();
           await tester.tap(find.text('내역'));
           await tester.pumpAndSettle();
           await capture('04-history');
+          await tester.tap(find.text('8,000원'));
+          await tester.pumpAndSettle();
+          await capture('08-expense-edit');
+          await tester.tap(find.text('‹'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('성장'));
+          await tester.pumpAndSettle();
+          await capture('05-growth');
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(DtrNavigation)),
+          );
+          for (final upgrade in [1, 4]) {
+            previewPet = PetStatus(20, upgrade);
+            container.invalidate(petPointsProvider);
+            await tester.pumpAndSettle();
+            await capture('growth-lv${upgrade + 1}');
+          }
+
+          for (final size in [const Size(360, 800), const Size(320, 640)]) {
+            tester.view.physicalSize = size;
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            await capture('growth-${size.width.toInt()}');
+          }
+          tester.view.physicalSize = const Size(430, 932);
+          await tester.tap(find.text('오늘'));
+          await tester.pumpAndSettle();
+          final navigator = tester.state<NavigatorState>(
+            find.byType(Navigator).first,
+          );
+          navigator.push(
+            MaterialPageRoute<void>(builder: (_) => const BackupScreen()),
+          );
+          await tester.pumpAndSettle();
+          await capture('06-backup');
+          await tester.tap(find.text('‹'));
+          await tester.pumpAndSettle();
+          navigator.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const BudgetChangeScreen(savings: 50000),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await capture('07-budget-change');
+          await tester.tap(find.text('‹'));
+          await tester.pumpAndSettle();
+          for (final width in [320.0, 360.0, 430.0]) {
+            tester.view.physicalSize = Size(width, 800);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          }
         }
         await tester.pumpWidget(const SizedBox());
         await db.close();

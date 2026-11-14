@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import 'design.dart';
 import '../domain/budget.dart';
 import '../platform/android_bridge.dart';
 
@@ -54,18 +55,21 @@ Widget moneyField(
   TextEditingController controller,
   String label, {
   bool allowZero = true,
-}) => TextFormField(
-  controller: controller,
-  keyboardType: TextInputType.number,
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(13),
-  ],
-  decoration: InputDecoration(labelText: label, suffixText: '원'),
-  validator: (s) {
-    final n = int.tryParse(s ?? '');
-    return n == null || n < (allowZero ? 0 : 1) || n > maxWon
-        ? '${allowZero ? 0 : 1}~${won(maxWon)} 사이 정수를 입력해 주세요.'
-        : null;
-  },
+}) => dtrField(
+  TextFormField(
+    controller: controller,
+    keyboardType: TextInputType.number,
+    inputFormatters: [
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(13),
+    ],
+    style: DtrDesign.text(17, weight: FontWeight.w500),
+    decoration: InputDecoration(labelText: label, suffixText: '원'),
+    validator: (s) {
+      final n = int.tryParse(s ?? '');
+      return n == null || n < (allowZero ? 0 : 1) || n > maxWon
+          ? '${allowZero ? 0 : 1}~${won(maxWon)} 사이 정수를 입력해 주세요.'
+          : null;
+    },
+  ),
 );

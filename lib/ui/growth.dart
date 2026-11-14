@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/backup.dart';
 import '../domain/budget.dart';
 import 'state.dart';
+import 'design.dart';
 
 class GrowthScreen extends ConsumerStatefulWidget {
   const GrowthScreen({super.key});
@@ -54,73 +55,182 @@ class _GrowthState extends ConsumerState<GrowthScreen> {
         ),
         data: (pet) {
           final name = pet.level >= 5
-              ? '성장'
+              ? '단풍 왕관'
               : pet.level >= 2
               ? '새싹'
               : '씨앗';
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text('내 돈토리', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 12),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xfff6e8c8),
-                  borderRadius: BorderRadius.circular(24),
+          return LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 24).clamp(
+                    0,
+                    double.infinity,
+                  ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
+                child: IntrinsicHeight(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        child: Image.asset(
-                          'android/app/src/main/res/drawable-nodpi/dori_${pet.sprite}.png',
-                          key: ValueKey(pet.level),
-                          width: 120,
-                          height: 120,
-                          filterQuality: FilterQuality.none,
+                      SizedBox(
+                        height: 42,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: GestureDetector(
+                            onLongPress: () => showQaTools(context, ref),
+                            child: Text(
+                              '돈토리 성장',
+                              style: DtrDesign.text(
+                                23,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      Text(
-                        'Lv. ${pet.level}  ·  $name 돈토리',
-                        style: Theme.of(context).textTheme.titleLarge,
+                      const SizedBox(height: 18),
+                      Container(
+                        height: 344,
+                        decoration: DtrDesign.panel(
+                          color: DtrDesign.peach,
+                          radius: 24,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Lv. ${pet.level}',
+                              style: DtrDesign.text(
+                                18,
+                                color: DtrDesign.accent,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 350),
+                              child: SizedBox(
+                                key: ValueKey(pet.sprite),
+                                width: 168,
+                                height: 168,
+                                child: DtrDesign.asset(
+                                  '${pet.sprite}-hero',
+                                  168,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '$name 돈토리',
+                              style: DtrDesign.text(
+                                26,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        pet.level >= 5
-                            ? '한 알씩 모아 이만큼 자랐어요.'
-                            : pet.level >= 2
-                            ? 'Lv. 5에 다 자란 모습이 돼요.'
-                            : 'Lv. 2에 새싹이 돋아요.',
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 54,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '보유 도토리',
+                              style: DtrDesign.text(
+                                17,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              '${pet.balance}개',
+                              style: DtrDesign.text(
+                                24,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 24,
+                        child: Text(
+                          '성장 단계',
+                          style: DtrDesign.text(17, weight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          for (var i = 0; i < 3; i++) ...[
+                            if (i > 0) const SizedBox(width: 10),
+                            Expanded(
+                              child: Container(
+                                height: 100,
+                                decoration: DtrDesign.panel(
+                                  color:
+                                      (pet.level >= 5
+                                              ? 2
+                                              : pet.level >= 2
+                                              ? 1
+                                              : 0) ==
+                                          i
+                                      ? const Color(0xFFFFE1BC)
+                                      : DtrDesign.growthSoft,
+                                  radius: 15,
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    DtrDesign.asset(
+                                      ['seed', 'sprout', 'bloom'][i],
+                                      48,
+                                    ),
+                                    Text(
+                                      ['Lv.1 씨앗', 'Lv.2 새싹', 'Lv.5 성장'][i],
+                                      style: DtrDesign.text(
+                                        14,
+                                        weight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const Spacer(),
+                      SizedBox(
+                        height: 50,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: DtrDesign.accent,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(0xFFF0E3D4),
+                            disabledForegroundColor: const Color(0xFF70533D),
+                          ),
+                          onPressed: pet.balance >= 5 && !busy ? train : null,
+                          child: Text(
+                            busy
+                                ? '강화 중…'
+                                : pet.balance >= 5
+                                ? '도토리 5개로 레벨업'
+                                : '도토리 ${5 - pet.balance}개 필요',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                '보유 도토리  ${pet.balance}개',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(value: pet.balance.clamp(0, 5) / 5),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: pet.balance >= 5 && !busy ? train : null,
-                icon: const Icon(Icons.eco),
-                label: Text(
-                  busy
-                      ? '강화 중…'
-                      : pet.balance >= 5
-                      ? '도토리 5개로 레벨 업'
-                      : '강화까지 도토리 ${5 - pet.balance}개',
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('도토리 모으기'),
-              const Text('지출을 기록한 날에는 1개, 그날 예산보다 적게 썼다면 다음 날 1개를 더 받아요.'),
-            ],
+            ),
           );
         },
       );

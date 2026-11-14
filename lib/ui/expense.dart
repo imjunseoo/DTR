@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../domain/budget.dart';
 import 'state.dart';
+import 'design.dart';
 
 class ExpenseScreen extends ConsumerStatefulWidget {
   const ExpenseScreen({
@@ -44,68 +45,125 @@ class _ExpenseState extends ConsumerState<ExpenseScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.expense == null ? '빠른 지출 입력' : '지출 수정')),
-    body: Form(
-      key: form,
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          if (widget.fixed != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text('${widget.fixed!.name} 결제 · 예약금과 중복 차감하지 않아요.'),
+    body: SafeArea(
+      child: Form(
+        key: form,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          children: [
+            DtrHeader(
+              widget.expense == null ? '빠른 지출 입력' : '지출 수정',
+              back: true,
             ),
-          moneyField(amount, '사용한 금액', allowZero: false),
-          const SizedBox(height: 20),
-          if (widget.fixed == null && widget.expense?.fixedCostId == null)
-            Wrap(
-              spacing: 8,
-              children: ['식사', '커피', '교통', '쇼핑', '기타']
-                  .map(
-                    (e) => ChoiceChip(
-                      label: Text(e),
-                      selected: category == e,
-                      onSelected: busy
-                          ? null
-                          : (selected) =>
-                                setState(() => category = selected ? e : ''),
-                    ),
-                  )
-                  .toList(),
+            const SizedBox(height: 16),
+            if (widget.fixed != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text('${widget.fixed!.name} 결제 · 예약금과 중복 차감하지 않아요.'),
+              ),
+            moneyField(amount, '사용한 금액', allowZero: false),
+            const SizedBox(height: 16),
+            if (widget.expense != null)
+              dtrField(
+                DropdownButtonFormField<String>(
+                  initialValue: category.isEmpty ? null : category,
+                  decoration: const InputDecoration(labelText: '분류'),
+                  items:
+                      {
+                            '식사',
+                            '커피',
+                            '교통',
+                            '쇼핑',
+                            '기타',
+                            if (category.isNotEmpty) category,
+                          }
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                  onChanged: busy || widget.expense?.fixedCostId != null
+                      ? null
+                      : (value) => setState(() => category = value ?? ''),
+                ),
+              )
+            else if (widget.fixed == null)
+              Wrap(
+                spacing: 5,
+                runSpacing: 5,
+                children: ['식사', '커피', '교통', '쇼핑', '기타']
+                    .map(
+                      (e) => ChoiceChip(
+                        label: Text(
+                          e,
+                          style: DtrDesign.text(
+                            13,
+                            color: category == e
+                                ? DtrDesign.accent
+                                : DtrDesign.muted,
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                        selectedColor: DtrDesign.peach,
+                        backgroundColor: DtrDesign.card,
+                        showCheckmark: false,
+                        side: category == e
+                            ? BorderSide.none
+                            : const BorderSide(color: DtrDesign.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        selected: category == e,
+                        onSelected: busy
+                            ? null
+                            : (selected) =>
+                                  setState(() => category = selected ? e : ''),
+                      ),
+                    )
+                    .toList(),
+              ),
+            const SizedBox(height: 16),
+            dtrField(
+              TextFormField(
+                controller: memo,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: '메모 (선택)',
+                  counterText: '',
+                ),
+              ),
             ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: memo,
-            maxLength: 500,
-            decoration: const InputDecoration(labelText: '메모 (선택)'),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(dateLabel(date)),
-            trailing: const Icon(Icons.calendar_today),
-            onTap: busy
-                ? null
-                : () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: date,
-                      firstDate: widget.state.plan.start,
-                      lastDate: day(DateTime.now()),
-                    );
-                    if (picked != null) setState(() => date = day(picked));
-                  },
-          ),
-          if (error != null)
-            Text(error!, style: const TextStyle(color: Colors.red)),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: busy ? null : save,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '지출 날짜',
+                style: DtrDesign.text(14, color: DtrDesign.muted),
+              ),
+              trailing: Text(
+                '${date.year}년 ${date.month}월 ${date.day}일',
+                style: DtrDesign.text(15, weight: FontWeight.w500),
+              ),
+              onTap: busy
+                  ? null
+                  : () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: date,
+                        firstDate: widget.state.plan.start,
+                        lastDate: day(DateTime.now()),
+                      );
+                      if (picked != null) setState(() => date = day(picked));
+                    },
+            ),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: busy ? null : save,
               child: Text(busy ? '저장 중…' : '저장하기'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

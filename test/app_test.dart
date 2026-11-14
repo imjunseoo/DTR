@@ -7,6 +7,22 @@ import 'package:dtr/ui/state.dart';
 import 'package:dtr/data/database.dart';
 
 void main() {
+  testWidgets('첫 예산 화면에서 제목을 길게 누르면 QA 메뉴가 열린다', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(db)],
+        child: const DontoriApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('DTR (돈토리)'));
+    await tester.pumpAndSettle();
+    expect(find.text('QA 시작 · 빈 임시 가계부'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await db.close();
+  });
+
   testWidgets('예산 설정 → 지출 저장 → HP 갱신', (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;

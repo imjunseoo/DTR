@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/backup.dart';
 import '../platform/android_bridge.dart';
 import 'state.dart';
+import 'design.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -70,43 +71,52 @@ class _BackupState extends ConsumerState<BackupScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('백업 및 복원')),
-    body: ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Icon(Icons.folder_copy_outlined, size: 56),
-        const SizedBox(height: 20),
-        const Text(
-          '내 기록을 안전하게 보관해요',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          '백업에는 예산·저축 설정, 고정지출, 지출 내역이 포함됩니다. 백업 파일은 암호화되지 않으므로 개인 저장 공간에 보관해 주세요. 앱을 삭제하면 기기 내 기록도 삭제됩니다.',
-        ),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: busy ? null : export,
-          icon: const Icon(Icons.save_alt),
-          label: const Text('백업 파일 저장'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: busy ? null : restore,
-          icon: const Icon(Icons.restore),
-          label: const Text('파일에서 복원'),
-        ),
-        if (busy)
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: LinearProgressIndicator(),
+    body: SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+        children: [
+          const DtrHeader('백업 및 복원', back: true),
+          const SizedBox(height: 16),
+          Text(
+            '내 기록을 안전하게 보관해요',
+            style: DtrDesign.text(27, weight: FontWeight.w700),
           ),
-        if (message != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: Text(message!),
+          const SizedBox(height: 5),
+          Text(
+            '예산, 저축 설정, 고정지출과 지출 내역을 파일로 보관할 수 있어요.',
+            style: DtrDesign.text(14, color: DtrDesign.muted),
           ),
-      ],
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(15),
+            decoration: DtrDesign.panel(color: DtrDesign.soft, radius: 13),
+            child: Text(
+              '백업 파일은 암호화되지 않아요. 개인 저장 공간에 보관해 주세요.',
+              style: DtrDesign.text(14, color: DtrDesign.muted),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: busy ? null : export,
+            child: const Text('백업 파일 저장'),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: busy ? null : restore,
+            child: const Text('파일에서 복원'),
+          ),
+          if (busy)
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: LinearProgressIndicator(),
+            ),
+          if (message != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Text(message!),
+            ),
+        ],
+      ),
     ),
   );
 }

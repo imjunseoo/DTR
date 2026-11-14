@@ -114,117 +114,98 @@ class DontoriWidget : GlanceAppWidget() {
 private fun petWalk(context: Context, display: WidgetDisplay, widthDp: Int): android.widget.RemoteViews {
     val scene = android.widget.RemoteViews(context.packageName, R.layout.dori_idle)
     scene.removeAllViews(R.id.pet_walk)
-    val limit = (widthDp - 24).coerceIn(0, 120)
-    val rng = kotlin.random.Random(display.hashCode())
-    var x = limit / 2
-    var target = rng.nextInt(limit + 1)
-    var pause = 0
+    val limit = (widthDp - 48 - 16).coerceAtLeast(0)
     val stage = when {
-        display.points >= 20 -> R.drawable.dori_bloom
-        display.points >= 5 -> R.drawable.dori_sprout
-        else -> R.drawable.dori_seed
+        display.points >= 20 -> "bloom"
+        display.points >= 5 -> "sprout"
+        else -> "seed"
     }
-    repeat(20) { tick ->
-        val resting = x == target
-        val pose = when {
-            tick == 0 -> stage
-            resting && display.logged -> R.drawable.dori_record
-            resting && display.hp >= 0.5f -> R.drawable.dori_save
-            resting -> R.drawable.dori_rest
-            tick % 2 == 0 -> R.drawable.dori_inhale
-            else -> R.drawable.dori_idle
+    val clips = petClips.getValue(stage)
+    val density = context.resources.displayMetrics.density
+    val stride = minOf(4, limit / 8)
+    var x = (limit - stride * 8) / 2
+    var elapsedMs = 0
+    var ticks = 0
+    fun play(name: String, direction: Int = 0) {
+        val clip = clips.getValue(name)
+        for (i in clip.frames.indices) {
+            elapsedMs += clip.durations[i]
+            val nextTick = maxOf(ticks + 1, (elapsedMs / 125f).roundToInt())
+            repeat(nextTick - ticks) {
+                val frame = android.widget.RemoteViews(context.packageName, R.layout.dori_step)
+                frame.setViewPadding(R.id.pet_step, ((x + 8) * density).roundToInt(), 0, 0, 0)
+                frame.setImageViewResource(R.id.pet_sprite, clip.frames[i])
+                scene.addView(R.id.pet_walk, frame)
+            }
+            ticks = nextTick
+            x += direction * stride
         }
-        val frame = android.widget.RemoteViews(context.packageName, R.layout.dori_step)
-        val density = context.resources.displayMetrics.density
-        frame.setViewPadding(R.id.pet_step, (x * density).roundToInt(),
-            if (resting || tick % 2 == 0) 0 else (2 * density).roundToInt(), 0, 0)
-        frame.setImageViewResource(R.id.pet_sprite, pose)
-        scene.addView(R.id.pet_walk, frame)
-        if (resting && ++pause >= 2) {
-            target = rng.nextInt(limit + 1)
-            pause = 0
-        }
-        x += (target - x).coerceIn(-9, 9)
     }
+    play("idle")
+    repeat(2) { play("walk_right", 1) }
+    play("stop")
+    play("rest")
+    repeat(2) { play("walk_left", -1) }
+    play("stop")
+    play(if (display.logged) "record" else if (display.hp >= 0.5f) "save" else "rest")
     return scene
 }
 @Composable
 private fun BudgetWidget(context: Context, display: WidgetDisplay, open: Action) {
     val size = LocalSize.current
-    val padding = if (size.width >= 175.dp && size.height >= 165.dp) 14.dp else 6.dp
+    val padding = if (size.width >= 175.dp && size.height >= 165.dp) 12.dp else 6.dp
     val contentWidth = (size.width - padding * 2).value.coerceAtLeast(1f)
     val fontScale = context.resources.configuration.fontScale.coerceAtLeast(1f)
-    val detailHeight = (size.height.value - 2 * padding.value - 48f) / fontScale
-    val spacious = detailHeight >= 112 && contentWidth / fontScale >= 134
-    val showHeading = detailHeight >= 68
+    val available = size.height.value - 2 * padding.value - 48f
+    val compact = available < 76f * fontScale
+    val spacious = available >= 160f * fontScale && contentWidth / fontScale >= 134
+    // Reserve the monetary summary before assigning any height to scenery.
+    val summaryHeight = if (compact) available else (if (spacious) 112f else 88f) * fontScale
+    val freeHeight = available - summaryHeight
+    val showHeading = freeHeight >= 32f * fontScale + 54f
+    val yardHeight = freeHeight - (if (showHeading) 28f * fontScale else 0f) - 4f
     val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     val active = display.configured && !display.expired && display.date == today
-    val date = display.date.replace('-', '.')
+    val date = display.date
     val hpColor = if (display.hp < 0.25f) Warning else HpFill
 
     Column(
         modifier = GlanceModifier.fillMaxSize().background(Surface).cornerRadius(20.dp).padding(padding)
     ) {
-        if (showHeading) {
-            val heading = when {
-                !display.configured -> "DTR"
-                contentWidth / fontScale >= 144 -> "DTR · $date"
-                else -> date
+        if (active) {
+            if (showHeading) {
+                Text("돈토리 · $date", style = TextStyle(color = MutedInk, fontSize = 13.sp), maxLines = 1)
             }
-            Text(heading, style = TextStyle(color = MutedInk, fontWeight = FontWeight.Medium, fontSize = 13.sp), maxLines = 1)
-        }
-        // Keep the action's 48dp row available even when the launcher offers a short cell.
-        Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
-            if (active) {
-                if (spacious) {
-                    Text("오늘 남은 예산", style = TextStyle(color = MutedInk, fontSize = 14.sp))
-                    Spacer(GlanceModifier.height(2.dp))
-                }
-                val startSize = if (spacious) 28 else 20
-                val (amount, amountSize) = fitWon(context, display.remaining, contentWidth, startSize)
-                Text(amount, style = TextStyle(color = Ink, fontSize = amountSize.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                if (detailHeight >= 42) {
-                    val percent = (display.hp * 100).roundToInt()
-                    val status = when {
-                        display.remaining < 0 -> " · 초과"
-                        display.hp < 0.25f -> " · 주의"
-                        else -> ""
-                    }
-                    val hpLabel = when {
-                        spacious -> "생활비 HP $percent%$status"
-                        showHeading -> "HP $percent%"
-                        else -> "${date.takeLast(5)} · $percent%"
-                    }
-                    if (spacious) Spacer(GlanceModifier.height(8.dp))
-                    Text(hpLabel, style = TextStyle(color = hpColor, fontSize = if (spacious) 16.sp else 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                    if (spacious) {
-                        Spacer(GlanceModifier.height(4.dp))
-                        LinearProgressIndicator(display.hp, GlanceModifier.fillMaxWidth().height(6.dp), hpColor, HpTrack)
-                    }
-                }
-            } else {
-                val message = when {
-                    !display.configured -> "첫 예산 설정"
-                    display.expired -> "새 예산 설정"
-                    else -> "오늘 예산 갱신"
-                }
-                Text(message, style = TextStyle(color = Ink, fontSize = if (spacious) 22.sp else 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
-            }
-        }
-        if (active && detailHeight >= 190 && contentWidth >= 56) {
-            androidx.glance.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+            if (yardHeight >= 54 && contentWidth >= 72) {
                 androidx.glance.appwidget.AndroidRemoteViews(
-                    petWalk(context, display, (contentWidth - if (contentWidth / fontScale >= 145) 90 else 0).toInt())
+                    petWalk(context, display, contentWidth.toInt()),
+                    modifier = GlanceModifier.fillMaxWidth().height(yardHeight.dp)
                 )
-                if (contentWidth / fontScale >= 145) Text(if (display.logged) "기록했어요!" else if (display.hp < 0.25f) "천천히 살펴봐요." else "오늘도 한 알씩.",
-                    style = TextStyle(color = MutedInk, fontSize = 13.sp), maxLines = 1)
             }
+            if (!compact) {
+                Text("오늘 남은 예산", style = TextStyle(color = MutedInk, fontSize = 13.sp), maxLines = 1)
+            }
+            val amountSp = if (compact) minOf(18f, available * 0.34f / fontScale).toInt().coerceAtLeast(10) else if (spacious) 28 else 20
+            val (amount, fittedSize) = fitWon(context, display.remaining, contentWidth, amountSp)
+            Text(amount, style = TextStyle(color = Ink, fontSize = minOf(amountSp, fittedSize).sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            val hpSp = if (compact) minOf(13f, available * 0.25f / fontScale) else 15f
+            val percent = (display.hp * 100).roundToInt()
+            val hpLabel = if (compact) "HP $percent%" else "생활비 HP $percent%" + if (display.remaining < 0) " · 초과" else ""
+            Text(hpLabel, style = TextStyle(color = hpColor, fontSize = hpSp.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+            LinearProgressIndicator(display.hp, GlanceModifier.fillMaxWidth().height(if (compact) 4.dp else 8.dp), hpColor, HpTrack)
+        } else {
+            Text(when {
+                !display.configured -> "첫 예산 설정"
+                display.expired -> "새 예산 설정"
+                else -> "오늘 예산 갱신"
+            }, style = TextStyle(color = Ink, fontSize = 15.sp), maxLines = 1)
         }
+        Spacer(GlanceModifier.defaultWeight())
         Button(
             text = when {
                 !display.configured || display.expired -> "앱 열기"
                 contentWidth / fontScale < 80 -> "입력"
-                else -> "지출 입력"
+                else -> if (contentWidth / fontScale >= 130) "간편 지출 입력" else "지출 입력"
             },
             onClick = open,
             modifier = GlanceModifier.fillMaxWidth().height(48.dp),
