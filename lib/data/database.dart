@@ -45,7 +45,7 @@ class LedgerState {
 class PetStatus {
   const PetStatus(this.earned, this.upgrades);
   final int earned, upgrades;
-  int get balance => (earned - upgrades * 5).clamp(0, earned);
+  int get balance => upgrades > earned ~/ 5 ? 0 : earned - upgrades * 5;
   int get level => upgrades + 1;
   String get sprite => level >= 5
       ? "bloom"

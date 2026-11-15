@@ -70,7 +70,7 @@ class BackupData {
         }
       }
       final u = j['version'] == 2 ? j['petUpgrades'] as int : null;
-      if (u != null && (u < 0 || u > 1000000)) {
+      if (u != null && u < 0) {
         throw const FormatException('잘못된 성장 정보');
       }
       return BackupData(cycles, upgrades: u);

@@ -256,7 +256,7 @@ Future<void> showQaTools(BuildContext context, WidgetRef ref) async {
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, 2),
-            child: const Text('예시 · Lv. 4 / 최종 외형 직전'),
+            child: const Text('예시 · Lv. 4 → 7 / 왕관과 연속 강화'),
           ),
         ],
         SimpleDialogOption(
@@ -274,7 +274,7 @@ Future<void> showQaTools(BuildContext context, WidgetRef ref) async {
   if (!ref.read(qaModeProvider)) return;
   final db = ref.read(databaseProvider);
   final now = day(DateTime.now());
-  final start = now.subtract(Duration(days: choice == 1 ? 2 : 10));
+  final start = now.subtract(Duration(days: choice == 1 ? 2 : 15));
   final plan = BudgetPlan(
     amount: 300000,
     savings: 0,

@@ -41,7 +41,7 @@ final widgetSyncProvider = FutureProvider<bool>((ref) async {
   final state = await ref.watch(ledgerProvider.future);
   try {
     final pet = await ref.watch(petPointsProvider.future);
-    await AndroidBridge.sync(state, pet.upgrades * 5);
+    await AndroidBridge.sync(state, pet.upgrades.clamp(0, 4) * 5);
     return true;
   } catch (_) {
     return false;
