@@ -1,6 +1,7 @@
 package com.dontori.dontori
 
 import android.content.Context
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Paint
@@ -135,6 +136,13 @@ private fun petWalk(context: Context, display: WidgetDisplay, widthDp: Int): and
                 val frame = android.widget.RemoteViews(context.packageName, R.layout.dori_step)
                 frame.setViewPadding(R.id.pet_step, ((x + 8) * density).roundToInt(), 0, 0, 0)
                 frame.setImageViewResource(R.id.pet_sprite, clip.frames[i])
+                frame.setContentDescription(R.id.pet_sprite, "돈토리와 대화")
+                frame.setOnClickPendingIntent(R.id.pet_sprite, PendingIntent.getActivity(
+                    context, 3102, Intent(context, MainActivity::class.java).apply {
+                        action = "com.dontori.CHAT"
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                ))
                 scene.addView(R.id.pet_walk, frame)
             }
             ticks = nextTick

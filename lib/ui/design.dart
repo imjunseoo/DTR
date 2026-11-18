@@ -52,7 +52,7 @@ class DtrNavigation extends StatelessWidget {
     ),
     child: Row(
       children: List.generate(
-        3,
+        4,
         (i) => Expanded(
           child: Semantics(
             selected: index == i,
@@ -62,23 +62,29 @@ class DtrNavigation extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(19),
                 onTap: () => onChanged(i),
-                child: SizedBox(
-                  height: 38,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (i == 0 && index == 0) ...[
+                      if (i == 0 &&
+                          index == 0 &&
+                          MediaQuery.sizeOf(context).width >= 390 &&
+                          MediaQuery.textScalerOf(context).scale(14) <= 17) ...[
                         DtrDesign.asset('favorite', 17),
                         const SizedBox(width: 7),
                       ],
-                      Text(
-                        ['오늘', '내역', '성장'][i],
-                        style: DtrDesign.text(
-                          index == 2 ? 15 : 14,
-                          color: index == i
-                              ? DtrDesign.accent
-                              : DtrDesign.muted,
-                          weight: FontWeight.w700,
+                      Flexible(
+                        child: Text(
+                          ['오늘', '내역', '성장', '대화'][i],
+                          textAlign: TextAlign.center,
+                          style: DtrDesign.text(
+                            index == 2 ? 15 : 14,
+                            color: index == i
+                                ? DtrDesign.accent
+                                : DtrDesign.muted,
+                            weight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],

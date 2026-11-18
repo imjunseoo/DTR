@@ -17,15 +17,25 @@ class MainActivity: FlutterActivity() {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main)
     private var pending:MethodChannel.Result?=null
     private var exportText:String?=null
-    private var quickEntry=false
+    private var widgetAction:String?=null
+    private fun readWidgetAction(intent:Intent?):String? = when(intent?.action) {
+        "com.dontori.QUICK_ENTRY" -> "expense"
+        "com.dontori.CHAT" -> "chat"
+        else -> null
+    }
 
     override fun configureFlutterEngine(engine:FlutterEngine){
         super.configureFlutterEngine(engine)
-        quickEntry=intent?.action=="com.dontori.QUICK_ENTRY"
+        widgetAction=readWidgetAction(intent)
         channel=MethodChannel(engine.dartExecutor.binaryMessenger,"com.dontori/platform")
         channel.setMethodCallHandler { call,result ->
             when(call.method){
-                "consumeQuickEntry"->{result.success(quickEntry);quickEntry=false}
+                "consumeWidgetAction"->{
+                    val action=widgetAction
+                    widgetAction=null
+                    intent?.action=null
+                    result.success(action)
+                }
                 "syncWidget"->{
                     val data=call.arguments as? Map<*,*>
                     if(data==null){result.error("invalid","Invalid widget data",null)}else{
@@ -66,9 +76,9 @@ class MainActivity: FlutterActivity() {
     }
     override fun onNewIntent(intent:Intent){
         super.onNewIntent(intent);setIntent(intent)
-        if(intent.action=="com.dontori.QUICK_ENTRY"){
-            quickEntry=true
-            if(::channel.isInitialized)channel.invokeMethod("quickEntry",null)
+        widgetAction=readWidgetAction(intent)
+        if(widgetAction!=null){
+            if(::channel.isInitialized)channel.invokeMethod("widgetAction",null)
         }
     }
     @Deprecated("Android activity result bridge")

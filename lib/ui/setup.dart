@@ -222,6 +222,7 @@ class _SetupState extends ConsumerState<SetupScreen> {
             now,
           );
       ref.invalidate(ledgerProvider);
+      ref.read(usageProvider).budgetReady();
       if (mounted && widget.closeAfterSave) Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => error = '$e');

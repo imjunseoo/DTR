@@ -1,0 +1,7 @@
+{
+  "name": "dtr-chat-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": { "deploy": "wrangler deploy", "test": "node --test worker.test.mjs" },
+  "devDependencies": { "wrangler": "4.164.0" }
+}

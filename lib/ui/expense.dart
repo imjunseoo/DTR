@@ -188,6 +188,7 @@ class _ExpenseState extends ConsumerState<ExpenseScreen> {
             DateTime.now(),
           );
       ref.invalidate(ledgerProvider);
+      if (widget.expense == null) ref.read(usageProvider).expenseSaved();
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => error = '저장하지 못했어요. $e');

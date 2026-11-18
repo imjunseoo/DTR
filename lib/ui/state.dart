@@ -5,11 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/usage_analytics.dart';
 import 'design.dart';
 import '../domain/budget.dart';
 import '../platform/android_bridge.dart';
 
 final qaModeProvider = NotifierProvider<QaMode, bool>(QaMode.new);
+final usageProvider = Provider<UsageAnalytics>((ref) {
+  final usage = UsageAnalytics(isQa: () => ref.read(qaModeProvider));
+  ref.onDispose(usage.dispose);
+  return usage;
+});
 
 class QaMode extends Notifier<bool> {
   @override

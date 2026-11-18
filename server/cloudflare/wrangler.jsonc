@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dontori-chat-beta",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-18",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": { "ANTHROPIC_MODEL": "claude-haiku-5-5", "DAILY_LIMIT": "10", "GLOBAL_DAILY_LIMIT": "1000" },
+  "durable_objects": { "bindings": [{ "name": "QUOTA", "class_name": "ChatQuota" }, { "name": "ANALYTICS", "class_name": "AnalyticsStore" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatQuota"] }, { "tag": "v2", "new_sqlite_classes": ["AnalyticsStore"] }]
+}

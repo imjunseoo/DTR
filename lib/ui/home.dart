@@ -13,6 +13,8 @@ import 'setup.dart';
 import 'expense.dart';
 import 'growth.dart';
 import 'design.dart';
+import 'conversation.dart';
+import 'usage_settings.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -26,19 +28,22 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
   Timer? timer;
   DateTime currentDay = day(DateTime.now());
   int page = 0;
+  bool foreground = true;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(ref.read(usageProvider).active());
     if (AndroidBridge.supported) {
       AndroidBridge.channel.setMethodCallHandler((call) async {
-        if (call.method == 'quickEntry') {
+        if (call.method == 'widgetAction') {
           await openFromWidget();
         }
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => openFromWidget());
     }
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (foreground) unawaited(ref.read(usageProvider).active());
       final next = day(DateTime.now());
       if (next != currentDay) {
         currentDay = next;
@@ -49,7 +54,13 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) ref.invalidate(ledgerProvider);
+    foreground = state == AppLifecycleState.resumed;
+    if (foreground) {
+      ref.invalidate(ledgerProvider);
+      unawaited(ref.read(usageProvider).active());
+    } else {
+      ref.read(usageProvider).pause();
+    }
   }
 
   @override
@@ -63,20 +74,35 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
   }
 
   bool openingFromWidget = false;
+  int widgetRequest = 0;
   Future<void> openFromWidget() async {
-    if (openingFromWidget) return;
-    openingFromWidget = true;
     try {
-      if (!await AndroidBridge.consumeQuickEntry()) return;
-      ref.invalidate(ledgerProvider);
-      final data = await ref.read(ledgerProvider.future);
-      if (mounted && data != null && !data.today.expired) {
-        await edit(null, data);
+      final action = await AndroidBridge.consumeWidgetAction();
+      if (action == null || !mounted) return;
+      unawaited(ref.read(usageProvider).widgetOpened(action));
+      if (action == 'chat') {
+        widgetRequest++;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        setState(() => page = 3);
+        return;
+      }
+      if (openingFromWidget) return;
+      openingFromWidget = true;
+      final request = ++widgetRequest;
+      try {
+        ref.invalidate(ledgerProvider);
+        final data = await ref.read(ledgerProvider.future);
+        if (mounted &&
+            request == widgetRequest &&
+            data != null &&
+            !data.today.expired) {
+          await edit(null, data);
+        }
+      } finally {
+        openingFromWidget = false;
       }
     } catch (_) {
       /* Opening the app still leaves the normal input button available. */
-    } finally {
-      openingFromWidget = false;
     }
   }
 
@@ -90,9 +116,20 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final ledger = ref.watch(ledgerProvider);
     final widgetSync = ref.watch(widgetSyncProvider);
+    ref.listen(ledgerProvider, (_, next) {
+      if (next.asData?.value != null) {
+        unawaited(ref.read(usageProvider).budgetReady());
+      }
+    });
+    final showUsage = ref.watch(usageProvider).configured;
     return Scaffold(
-      persistentFooterButtons: widgetSync.asData?.value == false
-          ? [const Text('기록은 저장됐어요. 위젯 갱신은 앱을 다시 열 때 재시도합니다.')]
+      persistentFooterButtons: showUsage || widgetSync.asData?.value == false
+          ? [
+              if (widgetSync.asData?.value == false)
+                const Text('기록은 저장됐어요. 위젯 갱신은 앱을 다시 열 때 재시도합니다.'),
+              if (showUsage && MediaQuery.viewInsetsOf(context).bottom == 0)
+                const UsageEntry(),
+            ]
           : null,
       body: SafeArea(
         bottom: false,
@@ -121,10 +158,17 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
                     ? const SetupScreen()
                     : page == 0
                     ? dashboard(data)
+                    : page == 3
+                    ? ConversationScreen(
+                        ledger: data,
+                        onExpense: () => edit(null, data),
+                      )
                     : history(data),
               ),
       ),
-      bottomNavigationBar: ledger.asData?.value == null
+      bottomNavigationBar:
+          ledger.asData?.value == null ||
+              (page == 3 && MediaQuery.viewInsetsOf(context).bottom > 0)
           ? null
           : SafeArea(
               top: false,
@@ -132,7 +176,7 @@ class _HomeState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (page != 2 &&
+                  if (page < 2 &&
                       ledger.asData?.value != null &&
                       !ledger.asData!.value!.today.expired) ...[
                     SizedBox(

@@ -21,9 +21,9 @@ class AndroidBridge {
     });
   }
 
-  static Future<bool> consumeQuickEntry() async => supported
-      ? (await channel.invokeMethod<bool>('consumeQuickEntry') ?? false)
-      : false;
+  static Future<String?> consumeWidgetAction() async => supported
+      ? await channel.invokeMethod<String>('consumeWidgetAction')
+      : null;
   static Future<bool> export(String data) async =>
       await channel.invokeMethod<bool>('exportBackup', data) ?? false;
   static Future<String?> import() =>

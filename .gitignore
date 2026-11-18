@@ -65,3 +65,6 @@ dontori-backup*.json
 
 # Local rendering scratch
 /work/
+/server/data/
+**/node_modules/
+**/.wrangler/
